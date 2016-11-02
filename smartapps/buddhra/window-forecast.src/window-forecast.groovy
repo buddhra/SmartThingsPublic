@@ -97,12 +97,12 @@ def initialize(){
         state.inside = "comfortable"
     }
     
-    log.trace ("Window Forecast initialized")
+    log.trace "Window Forecast initialized. It is $state.inside inside at $state.lastInTemp°F. It is $state.lastOutTemp°F outside and the trend is $state.trend. The day is $state.day with a forecasted high of $state.highTemp°F."
 }
 
 def inTempHandler(evt){
 	log.trace "Window Forecast saw that ${evt.displayName} changed to ${evt.value}°F. lastInTemp is $state.lastInTemp°F"
-    def inTemp = evt.value.toInteger()
+    def inTemp = evt.value.toDouble()
 
 	//INSIDE TEMP FILTERING
     if(state.lastInTemp-inTemp > 1){
@@ -134,7 +134,9 @@ def inTempHandler(evt){
 
 def outTempHandler(evt){
 	log.trace "Window Forecast saw that ${evt.displayName} changed to ${evt.value}°F. lastOutTemp is $state.lastOutTemp°F"
-	def outTemp = evt.value.toInteger()
+	double outTempD = evt.value.toDouble()
+    int outTempI = outTempD.round(0)
+    def outTemp = outTempI
 
 	//DETERMINE TREND    
     if((state.lastOutTemp-outTemp).abs() >= 1){
