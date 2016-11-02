@@ -59,32 +59,68 @@ def updated() {
 }
 
 def initialize(){
-    subscribe(insideTemp, "temperature", temperatureHandler)
-    subscribe(outsideTemp, "temperature", temperatureHandler)
+    subscribe(insideTemp, "temperature", inTempHandler)
+    subscribe(outsideTemp, "temperature", outTempHandler)
+        
     state.lastRecommendation = "don't know" //remembers last state in persistent memory
     state.lastOutTemp = outsideTemp.latestValue("temperature")
     state.lastInTemp = insideTemp.latestValue("temperature")
-    state.lastInTemp = state.lastInTemp.toInteger()
     state.trend = "not sure yet"
+    state.inside = "not sure yet"
+    state.day = "not sure yet"
+    
     def highTempStr = weatherCheck()
    	state.highTemp = highTempStr.toInteger()
-    log.trace ("Window Forecast started")
+    //INITIALIZE DAY
+    if(state.highTemp > maxTemp){
+        state.day = "warm"
+    }else if(state.highTemp < minTemp){
+        state.day = "cool"
+    }else{
+        state.day = "comfortable"
+    }
+        
+    log.trace ("Window Forecast initialized")
 }
 
-def temperatureHandler(evt){
-	log.debug "Window Forecast saw that ${evt.displayName} changed to ${evt.value}°F"
-    def inTemp = insideTemp.latestValue("temperature")
-    def outTemp = outsideTemp.latestValue("temperature")
-    def currentLogic = 0
-    def windowsRecommendation = "not sure yet"
-    def day = "don't know yet"
-    def inside = "don't know yet"
-	def openWindows = contacts.findAll { it?.latestValue("contact") == 'open' }
-    
+def inTempHandler(evt){
+	log.trace "Window Forecast saw that ${evt.displayName} changed to ${evt.value}°F"
+    def inTemp = evt.value
 
+	//INSIDE TEMP FILTERING
+    if(state.lastInTemp-inTemp > 1){
+    	inTemp = state.lastInTemp-1
+        log.trace "Inside temp is filtered to $inTemp°F because it decreased by more than the maximum amount"
+    }
+    if(inTemp-state.lastInTemp > 1){
+    	inTemp = state.lastInTemp+1
+        log.trace "Inside temp is filtered to $inTemp°F because it increased by more than the maximum amount"
+    }
+    if((state.lastInTemp-inTemp).abs() < 1){
+    	inTemp = state.lastInTemp
+        log.trace "Inside temp is filtered to $inTemp°F because it hasn't changed by the minimum amount."
+    }
+    if((state.lastInTemp-inTemp).abs() == 1){
+    	state.lastInTemp = inTemp
+        log.trace ("Inside temp of $inTemp°F was saved to lastInTemp")   
+    	
+        if(inTemp > maxTemp){
+            state.inside = "high"
+        }else if(inTemp < minTemp){
+            state.inside = "low"
+        }else{
+            state.inside = "comfortable"
+        }
+        logic() //run logic function since there was an update to the inside temp
+    }
+}
+
+def outTempHandler(evt){
+	log.trace "Window Forecast saw that ${evt.displayName} changed to ${evt.value}°F"
+	def outTemp = evt.value
 
 	//DETERMINE TREND    
-    if(state.lastOutTemp-outTemp >= 1 || outTemp-state.lastOutTemp >= 1){
+    if((state.lastOutTemp-outTemp).abs() >= 1){
         if(state.lastOutTemp > outTemp){
             state.trend = "decreasing"
         }
@@ -94,189 +130,166 @@ def temperatureHandler(evt){
     	state.lastOutTemp = outTemp
     }
     
-    //INSIDE TEMP FILTERING
-    if(state.lastInTemp-inTemp > 1){
-    	inTemp = state.lastInTemp-1
-        log.trace ("Inside temp is filtered to $inTemp°F because it decreased by more than the maximum amount")
-    }
-    if(inTemp-state.lastInTemp > 1){
-    	inTemp = state.lastInTemp+1
-        log.trace ("Inside temp is filtered to $inTemp°F because it increased by more than the maximum amount")
-    }
-    if(state.lastInTemp-inTemp >= 1 || inTemp-state.lastInTemp >= 1){
-    	state.lastInTemp = inTemp
-        log.trace ("Inside temp of $inTemp°F was saved to lastInTemp")
-       	
-        //CHECK TODAY'S HIGH TEMP SINCE THE INSIDE TEMP CHANGED   
-        def highTempStr = weatherCheck()
-        state.highTemp = highTempStr.toInteger()
-        
-    }else{
-    	inTemp = state.lastInTemp
-        log.trace ("Inside temp is filtered to $inTemp°F because it hasn't changed by the minimum amount.")
-    }
-   	
-	//READABILITY DEFINITIONS
-    //INSIDE
-	if(inTemp > maxTemp){
-    	inside = "high"
-    }else if(inTemp < minTemp){
-    	inside = "low"
-    }else{
-    	inside = "comfortable"
-    }
-    
-    //DAY
+	def highTempStr = weatherCheck()
+   	state.highTemp = highTempStr.toInteger()
+    //UPDATE DAY
     if(state.highTemp > maxTemp){
-        day = "warm"
+        state.day = "warm"
     }else if(state.highTemp < minTemp){
-        day = "cool"
+        state.day = "cool"
     }else{
-        day = "comfortable"
+        state.day = "comfortable"
     }
 
+}
+
+def logic(){
+	log.trace "Determining logic..."
+    def currentLogic = 0
+    def windowsRecommendation = "not sure yet"
+	def openWindows = contacts.findAll { it?.latestValue("contact") == 'open' }
+
 	//DETERMINE LOGIC
-	if(inTemp == outTemp){
+	if(state.lastInTemp == state.lastOutTemp){
     	currentLogic = 2 //2,5,8,11,14,17,20,23,26,29,32,35,38,41,44,47,50,53
         windowsRecommendation = "don't care"
-    }else if(inside == "high"){
-    	if(inTemp > outTemp){
+    }else if(state.inside == "high"){
+    	if(state.lastInTemp > state.lastOutTemp){
         	currentLogic = 1 //1,10,19,28,37,46
        		windowsRecommendation = "open"
         }
-        if(inTemp < outTemp){
+        if(state.lastInTemp < state.lastOutTemp){
         	currentLogic = 3 //3,12,21,30,39,48
             windowsRecommendation = "close"
         }
-    }else if(day == "warm"){
+    }else if(state.day == "warm"){
     	if(state.trend == "increasing"){
-        	if(inside == "comfortable"){
-            	if(inTemp > outTemp){
+        	if(state.inside == "comfortable"){
+            	if(state.lastInTemp > state.lastOutTemp){
                 	currentLogic = 4 
        				windowsRecommendation = "open"
                 }
-                if(inTemp < outTemp){
+                if(state.lastInTemp < state.lastOutTemp){
                 	currentLogic = 6 
 		       		windowsRecommendation = "close"
                 }
-            }else if(inside == "low"){
-            	if(inTemp > outTemp){
+            }else if(state.inside == "low"){
+            	if(state.lastInTemp > state.lastOutTemp){
                 	currentLogic = 7 
        				windowsRecommendation = "open"
                 }
-                if(inTemp < outTemp){
+                if(state.lastInTemp < state.lastOutTemp){
                 	currentLogic = 9 
 		       		windowsRecommendation = "close"
                 }
             }
         }else if(state.trend == "decreasing"){
-        	if(inside == "comfortable"){
-            	if(inTemp > outTemp){
+        	if(state.inside == "comfortable"){
+            	if(state.lastInTemp > state.lastOutTemp){
                 	currentLogic = 13 
        				windowsRecommendation = "don't care"
                 }
-                if(inTemp < outTemp){
+                if(state.lastInTemp < state.lastOutTemp){
                 	currentLogic = 15 
 		       		windowsRecommendation = "close"
                 }
-            }else if(inside == "low"){
-            	if(inTemp > outTemp){
+            }else if(state.inside == "low"){
+            	if(state.lastInTemp > state.lastOutTemp){
                 	currentLogic = 16 
        				windowsRecommendation = "don't care"
                 }
-                if(inTemp < outTemp){
+                if(state.lastInTemp < state.lastOutTemp){
                 	currentLogic = 18 
 		       		windowsRecommendation = "don't care"
                 }
             }
         }
-    }else if(day == "comfortable"){
+    }else if(state.day == "comfortable"){
     	if(state.trend == "increasing"){
-        	if(inside == "comfortable"){
-            	if(inTemp > outTemp){
+        	if(state.inside == "comfortable"){
+            	if(state.lastInTemp > state.lastOutTemp){
                 	currentLogic = 22 
        				windowsRecommendation = "don't care"
                 }
-                if(inTemp < outTemp){
+                if(state.lastInTemp < state.lastOutTemp){
                 	currentLogic = 24 
 		       		windowsRecommendation = "close"
                 }
-            }else if(inside == "low"){
-            	if(inTemp > outTemp){
+            }else if(state.inside == "low"){
+            	if(state.lastInTemp > state.lastOutTemp){
                 	currentLogic = 25 
        				windowsRecommendation = "don't care"
                 }
-                if(inTemp < outTemp){
+                if(state.lastInTemp < state.lastOutTemp){
                 	currentLogic = 27 
 		       		windowsRecommendation = "don't care"
                 }
             }
         }else if(state.trend == "decreasing"){
-        	if(inside == "comfortable"){
-            	if(inTemp > outTemp){
+        	if(state.inside == "comfortable"){
+            	if(state.lastInTemp > state.lastOutTemp){
                 	currentLogic = 31 
        				windowsRecommendation = "don't care"
                 }
-                if(inTemp < outTemp){
+                if(state.lastInTemp < state.lastOutTemp){
                 	currentLogic = 33 
 		       		windowsRecommendation = "don't care"
                 }
-            }else if(inside == "low"){
-            	if(inTemp > outTemp){
+            }else if(state.inside == "low"){
+            	if(state.lastInTemp > state.lastOutTemp){
                 	currentLogic = 34 
        				windowsRecommendation = "close"
                 }
-                if(inTemp < outTemp){
+                if(state.lastInTemp < state.lastOutTemp){
                 	currentLogic = 36 
 		       		windowsRecommendation = "open"
                 }
             }
         }
-    }else if(day == "cool"){
+    }else if(state.day == "cool"){
     	if(state.trend == "increasing"){
-        	if(inside == "comfortable"){
-            	if(inTemp > outTemp){
+        	if(state.inside == "comfortable"){
+            	if(state.lastInTemp > state.lastOutTemp){
                 	currentLogic = 40 
        				windowsRecommendation = "close"
                 }
-                if(inTemp < outTemp){
+                if(state.lastInTemp < state.lastOutTemp){
                 	currentLogic = 42 
 		       		windowsRecommendation = "open"
                 }
-            }else if(inside == "low"){
-            	if(inTemp > outTemp){
+            }else if(state.inside == "low"){
+            	if(state.lastInTemp > state.lastOutTemp){
                 	currentLogic = 43 
        				windowsRecommendation = "close"
                 }
-                if(inTemp < outTemp){
+                if(state.lastInTemp < state.lastOutTemp){
                 	currentLogic = 45 
 		       		windowsRecommendation = "open"
                 }
             }
         }else if(state.trend == "decreasing"){
-        	if(inside == "comfortable"){
-            	if(inTemp > outTemp){
+        	if(state.inside == "comfortable"){
+            	if(state.lastInTemp > state.lastOutTemp){
                 	currentLogic = 49 
        				windowsRecommendation = "don't care"
                 }
-                if(inTemp < outTemp){
+                if(state.lastInTemp < state.lastOutTemp){
                 	currentLogic = 51 
 		       		windowsRecommendation = "don't care"
                 }
-            }else if(inside == "low"){
-            	if(inTemp > outTemp){
+            }else if(state.inside == "low"){
+            	if(state.lastInTemp > state.lastOutTemp){
                 	currentLogic = 52 
        				windowsRecommendation = "close"
                 }
-                if(inTemp < outTemp){
+                if(state.lastInTemp < state.lastOutTemp){
                 	currentLogic = 54 
 		       		windowsRecommendation = "open"
                 }
             }
         }
     }
-	log.info ("It is $inside inside at $inTemp°F. It is $outTemp°F outside and the trend is $state.trend. The day will be $day with a forecasted high of $state.highTemp°F.")
- 
+	 
 	//CHECK FOR STATE CHANGE
 	if(state.lastRecommendation != windowsRecommendation){
         //CLOSE WINDOWS
@@ -299,9 +312,8 @@ def temperatureHandler(evt){
             	sendMessage("It is $inTemp°F inside and $outTemp°F outside. Open windows and skylights based on logic $currentLogic.")
             }
         }
-    }else{
-    	log.trace "It is $inTemp°F inside and $outTemp°F outside. The last recommendation was $state.lastRecommendation and the current recommendation is $windowsRecommendation based on logic $currentLogic"
-	}
+    }
+  	log.info "It is $inside inside at $inTemp°F. It is $outTemp°F outside and the trend is $state.trend. The day is $day with a forecasted high of $state.highTemp°F. The last recommendation was $state.lastRecommendation and the current recommendation is $windowsRecommendation based on logic $currentLogic"
 }
 
 def weatherCheck() {
