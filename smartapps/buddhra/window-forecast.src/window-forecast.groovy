@@ -98,7 +98,7 @@ def initialize(){
     //INTIIALIZE INSIDE
     if(state.lastInTemp > maxTemp){
         state.inside = "high"
-    }else if(inTemp < minTemp){
+    }else if(state.lastInTemp < minTemp){
         state.inside = "low"
     }else{
         state.inside = "comfortable"
