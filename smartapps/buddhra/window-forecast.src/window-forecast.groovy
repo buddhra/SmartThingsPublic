@@ -29,22 +29,21 @@ definition(
 
 preferences {
 	section( "Select your temperature sensors"){
-    	input "insideTemp", "capability.temperatureMeasurement", required: false, title: "Inside temperature"
-        input "outsideTemp", "capability.temperatureMeasurement", required: false, title: "Outside temperature"
+    	input "insideTemp", "capability.temperatureMeasurement", required: true, title: "Inside temperature"
+        input "outsideTemp", "capability.temperatureMeasurement", required: true, title: "Outside temperature"
     }
 	section( "Set the temperature range for your comfort zone..." ) {
-		input "minTemp", "number", title: "Minimum inside temperature"
-		input "maxTemp", "number", title: "Maximum inside temperature"
+		input "minTemp", "number", title: "Minimum inside temperature", required: true
+		input "maxTemp", "number", title: "Maximum inside temperature", required: true
 	}
-	section( "Select windows to check..." ) {
+	section( "Select (optional) windows to check..." ) {
 		input "contacts", "capability.contactSensor", multiple: true, required: false
 	}
 	section( "Set your location" ) {
-		input "zipCode", "text", title: "Zip code"
+		input "zipCode", "text", title: "Zip code", required: true
 	}
 	section( "Notifications" ) {
 		input "sendPush", "enum", title: "Send a push notification?", metadata:[values:["Yes","No"]], required:true
-		input "retryPeriod", "number", title: "Minutes between notifications:"
 	}
 }
 
@@ -64,11 +63,20 @@ def initialize(){
         
     state.lastRecommendation = "don't know" //remembers last state in persistent memory
     
-    double outTempD = outsideTemp.latestValue("temperature")
+    def outTempDef = outsideTemp.latestValue("temperature")
+    log.debug "$outTempDef"
+    if(!outTempDef){
+    	outTempDef = 70
+    }
+    double outTempD = outTempDef
     int outTempI = outTempD.round(0)
     state.lastOutTemp = outTempI
     
-    double inTempD = insideTemp.latestValue("temperature")
+    def inTempDef = insideTemp.latestValue("temperature")
+    if(!inTempDef){
+    	inTempDef = 70
+    }
+    double inTempD = inTempDef
     int inTempI = inTempD.round(0)
     state.lastInTemp = inTempI
     
@@ -97,7 +105,7 @@ def initialize(){
         state.inside = "comfortable"
     }
     
-    log.trace "Window Forecast initialized. It is $state.inside inside at $state.lastInTemp°F. It is $state.lastOutTemp°F outside and the trend is $state.trend. The day is $state.day with a forecasted high of $state.highTemp°F."
+    log.trace "Window Forecast initialized. The temperature is $state.inside inside at $state.lastInTemp°F. It is $state.lastOutTemp°F outside and the trend is $state.trend. The day is $state.day with a forecasted high of $state.highTemp°F."
 }
 
 def inTempHandler(evt){
@@ -330,8 +338,9 @@ def logic(){
             }
         }
     }
-  	log.info "It is $state.inside inside at $state.lastInTemp°F. It is $state.lastOutTemp°F outside and the trend is $state.trend. The day is $state.day with a forecasted high of $state.highTemp°F. The last recommendation was $state.lastRecommendation and the current recommendation is $windowsRecommendation based on logic $currentLogic"
-	state.lastRecommendation = windowsRecommendation
+  	log.info "The temperature is $state.inside inside at $state.lastInTemp°F. It is $state.lastOutTemp°F outside and the trend is $state.trend. The day is $state.day with a forecasted high of $state.highTemp°F. The last window recommendation was $state.lastRecommendation and the current recommendation is $windowsRecommendation based on logic $currentLogic"
+	sendNotificationEvent("The temperature is $state.inside inside at $state.lastInTemp°F. It is $state.lastOutTemp°F outside and the trend is $state.trend. The day is $state.day with a forecasted high of $state.highTemp°F. The last window recommendation was $state.lastRecommendation and the current recommendation is $windowsRecommendation based on logic $currentLogic")
+    state.lastRecommendation = windowsRecommendation
 }
 
 def weatherCheck() {
