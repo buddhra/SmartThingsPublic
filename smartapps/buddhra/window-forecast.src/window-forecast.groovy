@@ -1,6 +1,6 @@
 /**
  *  Window Forecast
- *	When Good Morning! is run, checks if today's forecasted temperature is higher than a preset comfort zone and notifies you to close windows.
+ *	Monitors inside and outside temperatures and recommends if windows should be open or closed. Uses forecasted high temperature to decide.
  *
  *  Copyright 2016 Matthew Budraitis
  *
