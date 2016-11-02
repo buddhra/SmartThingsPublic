@@ -311,7 +311,6 @@ def logic(){
 	if(state.lastRecommendation != windowsRecommendation){
         //CLOSE WINDOWS
         if(windowsRecommendation == "close"){
-            state.lastRecommendation = windowsRecommendation
             if(contacts && openWindows){
             	sendMessage("It is $state.lastInTemp°F inside and $state.lastOutTemp°F outside. Close ${openWindows.join(', ')} based on logic $currentLogic.")
             }else if(contacts){ 
@@ -320,7 +319,6 @@ def logic(){
         }
         //OPEN WINDOWS
         if(windowsRecommendation == "open"){
-            state.lastRecommendation = windowsRecommendation
             if(contacts && !openWindows){
             	sendMessage("It is $state.lastInTemp°F inside and $state.lastOutTemp°F outside. Open windows based on logic $currentLogic.")
             }else if(contacts){
@@ -331,6 +329,7 @@ def logic(){
         }
     }
   	log.info "It is $state.inside inside at $state.lastInTemp°F. It is $state.lastOutTemp°F outside and the trend is $state.trend. The day is $state.day with a forecasted high of $state.highTemp°F. The last recommendation was $state.lastRecommendation and the current recommendation is $windowsRecommendation based on logic $currentLogic"
+	state.lastRecommendation = windowsRecommendation
 }
 
 def weatherCheck() {
