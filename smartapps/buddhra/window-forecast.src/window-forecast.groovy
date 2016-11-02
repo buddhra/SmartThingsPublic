@@ -64,7 +64,6 @@ def initialize(){
     state.lastRecommendation = "don't know" //remembers last state in persistent memory
     
     def outTempDef = outsideTemp.latestValue("temperature")
-    log.debug "$outTempDef"
     if(!outTempDef){
     	outTempDef = 70
     }
