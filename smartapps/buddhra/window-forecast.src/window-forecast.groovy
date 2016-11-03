@@ -61,7 +61,7 @@ def initialize(){
     subscribe(insideTemp, "temperature", inTempHandler)
     subscribe(outsideTemp, "temperature", outTempHandler)
         
-    state.lastRecommendation = "don't know" //remembers last state in persistent memory
+    state.lastNotification = "not sure yet"
     
     def outTempDef = outsideTemp.latestValue("temperature")
     if(!outTempDef){
@@ -318,8 +318,8 @@ def logic(){
 	 
 	//CHECK FOR STATE CHANGE
     //CLOSE WINDOWS
-    if(windowsRecommendation == "close" && (state.lastRecommendation == "open" || state.lastRecommendation == "don't know")){
-        state.lastRecommendation = windowsRecommendation
+    if(windowsRecommendation == "close" && state.lastNotification != "close"){
+        state.lastNotification = windowsRecommendation
         if(contacts && openWindows){
             sendMessage("It is $state.lastInTemp°F inside and $state.lastOutTemp°F outside. Close ${openWindows.join(', ')}.")
         }else if(contacts){ 
@@ -327,8 +327,8 @@ def logic(){
         }else sendMessage("It is $state.lastInTemp°F inside and $state.lastOutTemp°F outside. Close windows and skylights.")
     }
     //OPEN WINDOWS
-    if(windowsRecommendation == "open" && (state.lastRecommendation == "close" || state.lastRecommendation == "don't know")){
-        state.lastRecommendation = windowsRecommendation
+    if(windowsRecommendation == "open" && state.lastNotification != "open"){
+        state.lastNotification = windowsRecommendation
         if(contacts && !openWindows){
             sendMessage("It is $state.lastInTemp°F inside and $state.lastOutTemp°F outside. Open windows.")
         }else if(contacts){
@@ -338,8 +338,8 @@ def logic(){
         }
     }
    	
- 	log.info "The temperature is $state.inside inside at $state.lastInTemp°F. It is $state.lastOutTemp°F outside and the trend is $state.trend. The day is $state.day with a forecasted high of $state.highTemp°F. The last window recommendation was $state.lastRecommendation and the current recommendation is $windowsRecommendation based on logic $currentLogic."
-	sendNotificationEvent("The temperature is $state.inside inside at $state.lastInTemp°F. It is $state.lastOutTemp°F outside and the trend is $state.trend. The day is $state.day with a forecasted high of $state.highTemp°F. The last window recommendation was $state.lastRecommendation and the current recommendation is $windowsRecommendation based on logic $currentLogic.")
+ 	log.info "The temperature is $state.inside inside at $state.lastInTemp°F. It is $state.lastOutTemp°F outside and the trend is $state.trend. The day is $state.day with a forecasted high of $state.highTemp°F. The current window recommendation is $windowsRecommendation based on logic $currentLogic."
+	sendNotificationEvent("The temperature is $state.inside inside at $state.lastInTemp°F. It is $state.lastOutTemp°F outside and the trend is $state.trend. The day is $state.day with a forecasted high of $state.highTemp°F. The current window recommendation is $windowsRecommendation based on logic $currentLogic.")
 }
 
 def weatherCheck() {
