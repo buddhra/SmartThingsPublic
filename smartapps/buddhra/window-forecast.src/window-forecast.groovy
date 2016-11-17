@@ -64,8 +64,8 @@ def initialize(){
     state.lastNotification = "not sure yet"
     
     def outTempDef = outsideTemp.latestValue("temperature")
-    if(!outTempDef){
-    	outTempDef = 70
+    if(!outTempDef){ 
+    	outTempDef = 70 //simulator complains if this value is null at first
     }
     double outTempD = outTempDef
     int outTempI = outTempD.round(0)
@@ -73,7 +73,7 @@ def initialize(){
     
     def inTempDef = insideTemp.latestValue("temperature")
     if(!inTempDef){
-    	inTempDef = 70
+    	inTempDef = 70 //simulator complains if this value is null at first
     }
     double inTempD = inTempDef
     int inTempI = inTempD.round(0)
@@ -202,7 +202,7 @@ def logic(){
             }else if(state.inside == "low"){
             	if(state.lastInTemp > state.lastOutTemp){
                 	currentLogic = 7 
-       				windowsRecommendation = "open"
+       				windowsRecommendation = "close"
                 }
                 if(state.lastInTemp < state.lastOutTemp){
                 	currentLogic = 9 
